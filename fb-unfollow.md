@@ -1,54 +1,86 @@
-TAKE CONTROL OF MY BROWSER AND DO THE FOLLOWING - 
-
 ═══════════════════════════════════════════════════════════════════════════════
-ENHANCED FACEBOOK UNFOLLOW AUTOMATION PROMPT - RECURSIVE EDITION
+FACEBOOK UNFOLLOW AUTOMATION - SAFEGUARDED EDITION (NEVER UNFRIEND)
 ═══════════════════════════════════════════════════════════════════════════════
 
+🚨 CRITICAL SAFETY RULES - ABSOLUTE PRIORITY 🚨
+-----------------------------------------------
+NEVER CLICK ANY BUTTON OR MENU ITEM CONTAINING THESE EXACT STRINGS:
+- "Unfriend"
+- "Remove friend"
+- "Remove from friends"
+- "Delete friend"
+- "Unfriend [name]"
+
+IF ANY OF THESE STRINGS ARE DETECTED IN A MENU:
+1. Immediately press Escape to close the menu
+2. Mark account as "FAILED" with reason "UNFRIEND_DETECTED"
+3. Do NOT click anything
+4. Return to following list
+5. Skip to next account
+
+ONLY VALID CLICK TARGETS:
+- "Unfollow" (exact match or contains "Unfollow" but NOT "Unfriend")
+- "Following" (submenu to access Unfollow)
+- "Friends" button (to open dropdown, NOT to unfriend)
+
+BEFORE EVERY CLICK IN A MENU:
+1. Read the exact text of the element you're about to click
+2. Verify it matches ONLY "Unfollow" or "Following"
+3. If text contains "Unfriend" → ABORT and close menu
+
+═══════════════════════════════════════════════════════════════════════════════
+UNDERSTANDING THE DIFFERENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+UNFOLLOW (SAFE - what we want):
+- Stops posts from appearing in your feed
+- KEEPS the friendship intact
+- Person remains in your friends list
+- They don't get notified
+- Button changes from "Friends" → still "Friends" but with a different follow state
+
+UNFRIEND (DANGEROUS - what we must avoid):
+- REMOVES the person from your friends list completely
+- BREAKS the friendship connection
+- Requires sending a new friend request to reconnect
+- This is PERMANENT and cannot be undone
+
+═══════════════════════════════════════════════════════════════════════════════
 ROLE & CONSTRAINTS
-------------------
+═══════════════════════════════════════════════════════════════════════════════
+
 You are a strict browser-automation agent controlling ONE active tab.
-You must:
-- Use only these actions: navigate, scroll, key_press, read_page, get_page_text, click.
-- NEVER execute JavaScript directly in the console.
-- ALWAYS operate sequentially: handle ONE account fully (open → unfollow → verify → back to list), then move on to the next.
-- NEVER open additional tabs or windows.
-- ALWAYS return to the main following list URL after processing each account.
+Target: UNFOLLOW people (stop seeing their posts) WITHOUT unfriending them.
 
-Target URL pattern for the following list:
-- https://www.facebook.com/[USERNAME]/following
+Core behavior:
+- Use only: navigate, scroll, key_press, read_page, get_page_text, click
+- NEVER execute JavaScript directly
+- Process ONE account at a time sequentially
+- ALWAYS return to following list between accounts
+- NEVER open multiple tabs
 
-Replace [USERNAME] with the actual username that is already open in the active tab.
-
-Your CORE LOOP is:
-1) Ensure the full following list is loaded.
-2) Build a queue of accounts to process.
-3) For each account in the queue:
-   - Open its profile/page.
-   - Unfollow with verification + retries.
-   - Navigate back to the following list.
-   - Continue from the next account.
-4) When no actionable “Friends” / “Following” remain, stop.
+Target URL: https://www.facebook.com/[USERNAME]/following
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 1: LOAD COMPLETE FOLLOWING LIST
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. Confirm you are on the following page:
-   - If URL does NOT contain "/following", navigate to:
-     - https://www.facebook.com/[USERNAME]/following
-   - Wait ~3 seconds for full load.
+1. Confirm URL contains "/following", otherwise navigate to:
+   https://www.facebook.com/[USERNAME]/following
+   Wait 3 seconds.
 
 2. Scroll to absolute top:
-   - key_press: "cmd+up" (Mac) OR "ctrl+up" (Windows/Linux).
+   - Mac: cmd+up
+   - Windows/Linux: ctrl+up
 
-3. Infinite scroll loader to load ALL entries:
+3. Infinite scroll to load ALL entries:
 
-   - previous_content = ""
-   - no_change_count = 0
+   previous_content = ""
+   no_change_count = 0
 
    WHILE no_change_count < 3:
-     - scroll(type="page_down", amount="max")
-     - wait 2–3 seconds
+     - scroll down with amount="max"
+     - wait 2-3 seconds
      - current_content = get_page_text()
      - IF current_content == previous_content:
          no_change_count += 1
@@ -57,30 +89,29 @@ PHASE 1: LOAD COMPLETE FOLLOWING LIST
      - previous_content = current_content
    END WHILE
 
-   After this loop, assume the full following list is visible in the DOM.
-
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 2: DISCOVER ACCOUNTS & BUILD QUEUE
 ═══════════════════════════════════════════════════════════════════════════════
 
-Use read_page(filter="interactive", depth=12).
+Execute: read_page(filter="interactive", depth=12)
 
-For each visible entry in the following list, extract:
-- account_name (text near the button, usually a clickable name)
-- account_url (href of the clickable name)
+Extract for each entry:
+- account_name
+- account_url
 - button_text (e.g., "Friends", "Following", "Cancel request")
-- element_ref (reference to the button element)
-- position_index (0-based index in the current list order)
+- element_ref
+- position_index
 
-PSEUDOCODE:
+BUILD QUEUE:
 
 processing_queue = []
-pending_requests_count = 0
+skipped_pending = 0
 
-FOR each discovered entry:
+FOR each entry:
   IF button_text contains "Cancel request":
-    pending_requests_count += 1
-    CONTINUE  # skip pending requests completely
+    skipped_pending += 1
+    CONTINUE  # Skip pending friend requests
+  
   ELSE IF button_text == "Friends" OR button_text == "Following":
     ADD to processing_queue:
       {
@@ -92,241 +123,260 @@ FOR each discovered entry:
         attempts: 0,
         index: position_index
       }
-  ELSE:
-    CONTINUE  # ignore anything else
-
-Result: processing_queue contains ONLY accounts that should be unfollowed.
 
 ═══════════════════════════════════════════════════════════════════════════════
-PHASE 3: MAIN RECURSIVE PROCESSING LOOP
+PHASE 3: MAIN PROCESSING LOOP
 ═══════════════════════════════════════════════════════════════════════════════
 
-You MUST process accounts ONE BY ONE in this order:
-- For i from 0 to processing_queue.length - 1:
-  - account = processing_queue[i]
-  - If account.status is already "unfollowed" or "already_unfollowed", skip.
-  - result = process_single_account(account)
-  - UPDATE account.status based on result
-  - After finishing, ALWAYS navigate back to the following list:
-      navigate("https://www.facebook.com/[USERNAME]/following")
-      wait ~3 seconds
-      (Do NOT rebuild the queue unless in Phase 4 verification.)
-
-If process_single_account returns:
-- "SUCCESS"          → account.status = "unfollowed"
-- "ALREADY_UNFOLLOWED" → account.status = "already_unfollowed"
-- "FAILED"           → account.attempts += 1
-                         if attempts < 3, keep as "pending" for later retry
-                         else account.status = "failed_max_retries"
-
-Track:
-- successfully_unfollowed = []
-- already_unfollowed = []
-- failed_accounts = []
-- retry_round = 0
-
-After first FULL pass through the queue, run RETRY passes only on accounts with status still "pending" AND attempts < 3.
+FOR each account in processing_queue:
+  IF account.status == "unfollowed" OR "already_unfollowed":
+    SKIP
+  
+  result = process_single_account(account)
+  
+  UPDATE account.status based on result:
+    - "SUCCESS" → account.status = "unfollowed"
+    - "ALREADY_UNFOLLOWED" → account.status = "already_unfollowed"
+    - "FAILED" → account.attempts += 1
+    - "UNFRIEND_DETECTED" → account.status = "blocked_for_safety"
+  
+  Navigate back to: https://www.facebook.com/[USERNAME]/following
+  Wait 3 seconds
 
 ═══════════════════════════════════════════════════════════════════════════════
 FUNCTION: process_single_account(account)
 ═══════════════════════════════════════════════════════════════════════════════
 
-INPUT: {name, url, button_type, ref, status, attempts}
-OUTPUT: "SUCCESS" | "ALREADY_UNFOLLOWED" | "FAILED"
+OUTPUT: "SUCCESS" | "ALREADY_UNFOLLOWED" | "FAILED" | "UNFRIEND_DETECTED"
 
+─────────────────────────────────────────────────────────────────────────────
 A. NAVIGATE TO ACCOUNT PAGE
----------------------------
+─────────────────────────────────────────────────────────────────────────────
 1. navigate(account.url)
-2. wait ~3 seconds
+2. wait 3 seconds
 
-Pre-flight checks using read_page(filter="all", depth=6):
-- If address bar URL clearly does NOT match account.url domain/profile → one retry.
-- If page shows "Page not available" / "Content not found" / empty main content:
-  - Retry navigate up to 2 times total.
-  - If still failing → RETURN "FAILED".
+Pre-flight checks:
+- Verify page loaded (not "Page not available")
+- Retry up to 2 times if failed
+- If still fails → RETURN "FAILED"
 
+─────────────────────────────────────────────────────────────────────────────
 B. DETECT CURRENT FOLLOW STATUS
--------------------------------
-1. read_page(filter="interactive", depth=10)
+─────────────────────────────────────────────────────────────────────────────
+Execute: read_page(filter="interactive", depth=10)
 
-2. Define:
-   - primary_button:
-       if account.button_type == "Friends"   → button labeled "Friends"
-       if account.button_type == "Following" → button labeled "Following"
-   - fallback_follow_button: button labeled "Follow"
+Find buttons:
+- primary_button:
+    IF account.button_type == "Friends" → button "Friends"
+    IF account.button_type == "Following" → button "Following"
+- fallback_follow_button: button "Follow"
 
-3. Logic:
-   - If fallback_follow_button EXISTS and primary_button does NOT:
-       → account is already unfollowed
-       → RETURN "ALREADY_UNFOLLOWED"
+IF fallback_follow_button exists AND primary_button does NOT:
+  → RETURN "ALREADY_UNFOLLOWED"
 
-C. OPEN ACTION MENU
--------------------
-1. If primary_button is NOT found:
-   - Try locate a three-dot menu "..." near the profile header.
-   - If found, click it once, wait ~1.5 seconds, then read_page again.
-   - If not found → RETURN "FAILED".
+─────────────────────────────────────────────────────────────────────────────
+C. OPEN ACTION MENU (WITH SAFETY CHECK)
+─────────────────────────────────────────────────────────────────────────────
+IF primary_button NOT found:
+  Try three-dot menu "..."
+  IF found:
+    click it, wait 1.5 seconds, read_page
+  ELSE:
+    RETURN "FAILED"
 
-2. If primary_button IS found:
-   - Attempt up to 3 clicks:
-       - click(primary_button)
-       - wait ~1 second
-       - If no menu appears after 3 attempts → RETURN "FAILED".
+ELSE:
+  click(primary_button)
+  wait 1 second
 
-3. After click, wait ~1.5 seconds and read_page(filter="interactive", depth=8) to capture menu options.
+Wait 1.5 seconds
+Execute: read_page(filter="interactive", depth=8)
 
-D. LOCATE UNFOLLOW OPTION
--------------------------
-Search the newly appeared menu content for:
-- "Unfollow"
-- "Unfollow [account.name]" (case-insensitive)
-- "Following" sub-menu that leads to an Unfollow entry
+─────────────────────────────────────────────────────────────────────────────
+D. SAFETY CHECK - SCAN MENU FOR UNFRIEND
+─────────────────────────────────────────────────────────────────────────────
+🚨 CRITICAL SAFETY STEP 🚨
 
-Variables:
-- unfollow_option = first menu item with label containing "Unfollow"
-- follow_option   = menu item with label containing "Follow"
-- following_submenu = menu item exactly or starting with "Following"
+Get all menu item texts from the page read.
 
-Logic:
-- If follow_option exists AND unfollow_option does NOT:
-    # Menu is offering to Follow → already unfollowed
-    - Close menu (Esc key) and RETURN "ALREADY_UNFOLLOWED"
+FOR each menu_item in visible_menu:
+  item_text_lower = menu_item.text.lower()
+  
+  IF any of these in item_text_lower:
+    - "unfriend"
+    - "remove friend"
+    - "delete friend"
+    - "remove from friend"
+  
+  THEN:
+    Press Escape immediately
+    RETURN "UNFRIEND_DETECTED"
 
-- If unfollow_option exists directly:
-    - Proceed to E.
+If this check passes, proceed to E.
 
-- Else if following_submenu exists:
-    - click(following_submenu)
-    - wait 1 second
-    - read_page(depth=8) again
-    - search again for unfollow_option
-    - If still not found:
-        - close menu (Esc key) and RETURN "FAILED"
+─────────────────────────────────────────────────────────────────────────────
+E. LOCATE UNFOLLOW OPTION (WITH PRE-CLICK VERIFICATION)
+─────────────────────────────────────────────────────────────────────────────
+Search menu for:
+- unfollow_option = item containing "Unfollow" (case-insensitive)
+- follow_option = item containing "Follow" but NOT "Unfollow"
+- following_submenu = item "Following"
 
-- If no relevant option:
-    - close menu (Esc key) and RETURN "FAILED"
+VERIFICATION BEFORE PROCEEDING:
+  IF unfollow_option found:
+    option_text = unfollow_option.text.lower()
+    
+    🚨 DOUBLE-CHECK: Does option_text contain "unfriend"?
+    IF YES:
+      Press Escape
+      RETURN "UNFRIEND_DETECTED"
+    
+    IF NO:
+      # Safe to proceed
 
-E. EXECUTE UNFOLLOW
--------------------
-1. click(unfollow_option)
-2. wait ~1 second
+IF follow_option exists AND unfollow_option does NOT:
+  Press Escape
+  RETURN "ALREADY_UNFOLLOWED"
 
-3. Check for confirmation dialog:
-   - read_page(filter="interactive", depth=6)
-   - Look for confirmation buttons labeled:
-       - "Update"
-       - "Confirm"
-       - "Unfollow"
-   - If found, click the confirmation button and wait ~1 second.
+IF unfollow_option exists directly:
+  PROCEED to F
 
-4. Press Escape once to close any remaining overlays/menus.
-5. Wait ~1 second.
+ELSE IF following_submenu exists:
+  click(following_submenu)
+  wait 1 second
+  read_page(depth=8)
+  
+  # Run safety check again on submenu
+  FOR each submenu_item:
+    IF "unfriend" in submenu_item.text.lower():
+      Press Escape
+      RETURN "UNFRIEND_DETECTED"
+  
+  unfollow_option = find("Unfollow")
+  IF NOT found:
+    Press Escape
+    RETURN "FAILED"
 
-F. VERIFY UNFOLLOW
-------------------
-1. read_page(filter="interactive", depth=10)
+ELSE:
+  Press Escape
+  RETURN "FAILED"
 
-2. Find:
-   - follow_button    = button labeled "Follow" or "Follow [account.name]"
-   - friends_button   = button labeled "Friends"
-   - following_button = button labeled "Following"
+─────────────────────────────────────────────────────────────────────────────
+F. EXECUTE UNFOLLOW (WITH FINAL SAFETY CHECK)
+─────────────────────────────────────────────────────────────────────────────
+🚨 FINAL VERIFICATION BEFORE CLICK 🚨
 
-3. Verification:
-   - If follow_button exists:
-       → RETURN "SUCCESS"
-   - Else if friends_button OR following_button still visible:
-       → RETURN "FAILED"
-   - Else:
-       → ambiguous → RETURN "FAILED"
+option_text = unfollow_option.text.lower()
 
-G. RETURN STATUS
-----------------
-Return the status string from step F.
+IF "unfriend" in option_text OR "remove friend" in option_text:
+  Press Escape
+  RETURN "UNFRIEND_DETECTED"
+
+IF "unfollow" NOT in option_text:
+  Press Escape
+  RETURN "FAILED"
+
+# Safe to click
+click(unfollow_option)
+wait 1 second
+
+Check for confirmation dialog:
+  read_page(filter="interactive", depth=6)
+  confirmation_button = find(["Update", "Confirm", "Unfollow"])
+  
+  IF found:
+    🚨 VERIFY confirmation button text does NOT contain "Unfriend"
+    IF "unfriend" in confirmation_button.text.lower():
+      Press Escape
+      RETURN "UNFRIEND_DETECTED"
+    
+    click(confirmation_button)
+    wait 1 second
+
+Press Escape
+wait 1 second
+
+─────────────────────────────────────────────────────────────────────────────
+G. VERIFY UNFOLLOW SUCCESS
+─────────────────────────────────────────────────────────────────────────────
+read_page(filter="interactive", depth=10)
+
+Find:
+- follow_button = button "Follow"
+- friends_button = button "Friends"
+- following_button = button "Following"
+
+🚨 CRITICAL: Check that Friends button still exists
+IF friends_button does NOT exist AND account.button_type was "Friends":
+  # This might indicate unfriending happened
+  RETURN "FAILED"  # Mark for manual review
+
+IF follow_button exists:
+  RETURN "SUCCESS"
+ELSE IF friends_button OR following_button visible:
+  RETURN "FAILED"
+ELSE:
+  RETURN "FAILED"
 
 ═══════════════════════════════════════════════════════════════════════════════
-PHASE 4: RETRY & RECOVERY (RECURSIVE)
+PHASE 4: RETRY & RECOVERY
 ═══════════════════════════════════════════════════════════════════════════════
 
-After first pass:
-- Collect accounts with status "pending" AND attempts < 3 into retry_queue.
+Retry only accounts with status "pending" AND attempts < 3.
 
 RETRY PASS 1:
-- If retry_queue NOT empty:
-  - For each account in retry_queue:
-    - wait ~3 seconds
-    - result = process_single_account(account)
-    - update status and attempts
-    - ALWAYS navigate back to:
-        https://www.facebook.com/[USERNAME]/following
-      and wait ~3 seconds before next account.
+  FOR each account in retry_queue:
+    wait 3 seconds
+    result = process_single_account(account)
+    update status and attempts
+    navigate back to following list
 
 RETRY PASS 2:
-- Build a new retry_queue again with those still "pending" and attempts < 3.
-- If still not empty:
-  - For each account:
-    - wait ~5 seconds
-    - result = process_single_account(account)
-    - update status and attempts
-    - ALWAYS navigate back to the following list after each account.
+  FOR accounts still pending with attempts < 3:
+    wait 5 seconds
+    result = process_single_account(account)
+    update status
+    navigate back
 
-Any accounts that continue to fail after 2 retry rounds and attempts >= 3:
-- Mark status = "failed_max_retries".
-- Add to manual_review_list.
+Accounts with "UNFRIEND_DETECTED" or attempts >= 3:
+  Mark as "manual_review_needed"
 
 ═══════════════════════════════════════════════════════════════════════════════
-PHASE 5: VERIFICATION SWEEP & RECURSIVE RE-RUN
+PHASE 5: VERIFICATION SWEEP
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. Navigate to:
-   - https://www.facebook.com/[USERNAME]/following
-   - wait ~3 seconds
-   - scroll to top (cmd+up / ctrl+up)
+1. Navigate to: https://www.facebook.com/[USERNAME]/following
+2. Scroll to top
+3. Re-run infinite scroll loader
+4. read_page(filter="interactive", depth=12)
 
-2. Re-run the infinite scroll loader from PHASE 1.
+5. Count:
+   - remaining_friends_buttons = count("Friends")
+   - remaining_following_buttons = count("Following")
+   - total_remaining = remaining_friends_buttons + remaining_following_buttons
 
-3. read_page(filter="interactive", depth=12).
+6. IF total_remaining == 0:
+     STOP - All done
 
-4. Count remaining actionable accounts:
-   - remaining_friends_buttons   = count of buttons labeled "Friends"
-   - remaining_following_buttons = count of buttons labeled "Following"
-   - remaining_actionable = remaining_friends_buttons + remaining_following_buttons
-
-5. If remaining_actionable == 0:
-   - Stop automation. Only "Cancel request" items should remain.
-
-6. If remaining_actionable > 0:
-   - Extract new actionable accounts into new_queue (same rules as PHASE 2).
-   - Filter out accounts already in successfully_unfollowed (by URL or name).
-   - If new_queue NOT empty:
-       - Process each account with process_single_account.
-       - After finishing the batch, run this verification sweep (PHASE 5) again.
-       - This defines the RECURSIVE behavior: verify → process remaining → verify again.
+7. IF total_remaining > 0:
+     Extract new accounts
+     Filter out already processed
+     Re-process with same safety checks
+     Run verification sweep again (recursive)
 
 ═══════════════════════════════════════════════════════════════════════════════
-PHASE 6: OPTIONAL SPOT CHECK
+FINAL SAFETY SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
-Optionally, select a small random subset (e.g., up to 5) from successfully_unfollowed and:
+Every click goes through:
+1. Text extraction
+2. "unfriend" keyword scan (case-insensitive)
+3. Abort if detected
+4. Only proceed if text contains "unfollow" or "following"
 
-FOR EACH sample_account:
-  - navigate(sample_account.url)
-  - wait ~2 seconds
-  - read_page(filter="interactive", depth=10)
-  - Confirm the presence of a "Follow" button and absence of "Friends"/"Following".
+Any account triggering "UNFRIEND_DETECTED":
+- Immediately abort
+- Close menu
+- Mark for manual review
+- Never click
 
-If any anomalies appear, add them to anomaly_list for manual review.
-
-═══════════════════════════════════════════════════════════════════════════════
-
-MANDATORY BEHAVIOR SUMMARY (TO ENFORCE CORRECT EXECUTION)
----------------------------------------------------------
-- Process accounts strictly SEQUENTIALLY.
-- For each account:
-  1) From following list → open profile
-  2) Unfollow with verification and retries
-  3) Navigate BACK to the following list URL
-  4) Move to the NEXT account
-- Do NOT stay on the profile and search for other accounts.
-- Do NOT open multiple tabs.
-- Do NOT skip navigation back to the following list between accounts.
-- REPEAT this cycle until no “Friends” or “Following” buttons remain on the following page.
+This ensures friendships remain 100% intact while only removing follows.
