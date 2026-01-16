@@ -1,3 +1,5 @@
+TAKE CONTROL OF MY BROWSER AND DO THE FOLLOWING - 
+
 ═══════════════════════════════════════════════════════════════════════════════
 FACEBOOK UNFOLLOW AUTOMATION - SAFEGUARDED EDITION (NEVER UNFRIEND)
 ═══════════════════════════════════════════════════════════════════════════════
