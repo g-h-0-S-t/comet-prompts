@@ -1,7 +1,11 @@
 # Comet Prompts
 
-Advanced prompt templates for Perplexity AI's Comet browser automation feature designed to streamline job application workflows through intelligent form filling and email drafting.
-
+Advanced prompt templates for Perplexity AI's Comet browser automation feature designed to streamline job application workflows through intelligent form filling and email drafting.  
+```
+For candidates preparing for interviews, I built a paid AI agent that works as a discreet assistance tool during interviews.
+It starts at Rs. 100 for a 24-hour license: https://wraith-api.onrender.com  
+All the best!
+```
 ## Overview
 
 This repository contains two specialized prompt templates that enable automated job application submissions across multiple platforms. The prompts leverage Comet's browser control capabilities to handle complex application forms, pagination, and email responses while maintaining data accuracy and validation compliance.
